@@ -3,13 +3,34 @@ import pandas as pd
 
 
 class MultiseasonalAveraging():
-    def __init__(self, df, date='date', y='y', dt='1h'):
+    def __init__(self, df, date='date', y='y'):
         self.date = date
         self.y = y
-        self.dt = pd.to_timedelta(dt)
         self.df = df[[self.date, self.y]].copy(deep=True)
         self.df.reset_index(inplace=True) # index retained
         self.get_ntimesteps()
+        self.get_timewindow()
+    
+    def get_ntimesteps(self):
+        self.step_start = self.df.index.start
+        self.step_end = self.df.index.stop
+        if (self.step_start == self.step_end):
+            raise ValueError(f'The supplied dataframe has only one timestep')
+        self.index_start = self.df.iloc[0]['index']
+        self.index_end = self.df.iloc[-1]['index']
+        self.ntimesteps = self.step_end - self.step_start
+        self.start_time = self.df.iloc[0][self.date]
+
+    def get_timewindow(self):
+        df = self.df
+        date = self.date
+        dt = (df.iloc[1][date] - df.iloc[0][date]).total_seconds()
+        dt_array = (df[date].iloc[1:].reset_index(drop=True)
+                    - df[date].iloc[0:-1].reset_index(drop=True)).dt.total_seconds().to_numpy()
+        if (not np.all(np.isclose(dt,dt_array))):
+            raise ValueError('The time intervals between consecutive entries of the supplied dataframe are not equal')
+        else:
+            self.dt = dt
 
     @staticmethod
     def outer_flatten(seasonal_list):
@@ -32,14 +53,6 @@ class MultiseasonalAveraging():
             return None
         arr = arr / np.sum(arr)
         return arr
-    
-    def get_ntimesteps(self):
-        self.step_start = self.df.index.start
-        self.step_end = self.df.index.stop
-        self.index_start = self.df.iloc[0]['index']
-        self.index_end = self.df.iloc[-1]['index']
-        self.ntimesteps = self.step_end - self.step_start
-        self.start_time = self.df.iloc[0][self.date]
 
     def get_date_from_index(self, idx):
         return self.start_time + self.dt * (idx - self.index_start)

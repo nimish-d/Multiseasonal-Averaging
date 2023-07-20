@@ -93,7 +93,7 @@ def test_averaging(feb_ts_df):
     The prediction for the next 28 days must be identical to
     the give time series
     '''
-    msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y', dt='4h')
+    msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y')
     seasonal_dict_list = [{'period': 4, 'function': 'self'},
                           {'period': 28, 'function': 'self'},
                           {'period': 112, 'function': 'self'}]
@@ -109,7 +109,12 @@ def test_averaging(feb_ts_df):
     assert avg_df.index.start == feb_ts_df.index.stop
 
     def test_date_from_index():
-        msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y', dt='4h')
+        msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y')
+        # 1
         calculated = pd.to_datetime('2/1/2023 18:00:00')
         from_function = msa.get_date_from_index(7)
+        assert abs(from_function - calculated) < pd.to_timedelta('1ms')
+        # 2
+        calculated = pd.to_datetime('1/30/2023 12:00:00')
+        from_function = msa.get_date_from_index(-6)
         assert abs(from_function - calculated) < pd.to_timedelta('1ms')
