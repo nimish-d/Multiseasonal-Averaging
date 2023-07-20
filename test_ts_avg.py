@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
+import datetime
 from ts_avg import MultiseasonalAveraging
 
 @pytest.fixture()
@@ -92,7 +93,7 @@ def test_averaging(feb_ts_df):
     The prediction for the next 28 days must be identical to
     the give time series
     '''
-    msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y')
+    msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y', dt='4h')
     seasonal_dict_list = [{'period': 4, 'function': 'self'},
                           {'period': 28, 'function': 'self'},
                           {'period': 112, 'function': 'self'}]
@@ -106,3 +107,9 @@ def test_averaging(feb_ts_df):
     # check if the starting index of the predicted forecast
     # is a continuation of the supplied df
     assert avg_df.index.start == feb_ts_df.index.stop
+
+    def test_date_from_index():
+        msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y', dt='4h')
+        calculated = pd.to_datetime('2/1/2023 18:00:00')
+        from_function = msa.get_date_from_index(7)
+        assert abs(from_function - calculated) < pd.to_timedelta('1ms')

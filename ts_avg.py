@@ -3,9 +3,10 @@ import pandas as pd
 
 
 class MultiseasonalAveraging():
-    def __init__(self, df, date='date', y='y'):
+    def __init__(self, df, date='date', y='y', dt='1h'):
         self.date = date
         self.y = y
+        self.dt = pd.to_timedelta(dt)
         self.df = df[[self.date, self.y]].copy(deep=True)
         self.df.reset_index(inplace=True) # index retained
         self.get_ntimesteps()
@@ -38,6 +39,10 @@ class MultiseasonalAveraging():
         self.index_start = self.df.iloc[0]['index']
         self.index_end = self.df.iloc[-1]['index']
         self.ntimesteps = self.step_end - self.step_start
+        self.start_time = self.df.iloc[0][self.date]
+
+    def get_date_from_index(self, idx):
+        return self.start_time + self.dt * (idx - self.index_start)
 
     def __append_to_average_table(self):
         try:
