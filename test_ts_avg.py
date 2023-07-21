@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import datetime
 from ts_avg import MultiseasonalAveraging
+import itertools
 
 @pytest.fixture()
 def seasonal_list():
@@ -30,6 +31,15 @@ def feb_ts_df():
     df = pd.DataFrame({'date': date_series})
     df['y'] = df.index
     df['y'] = df['y'].apply(lambda x: 1 + np.cos(0.05*(x%4)) + 0.025*((x//4)%7))
+    return df
+
+@pytest.fixture()
+def const_ts_df():
+    start_date = pd.to_datetime('2/1/2023')
+    end_date = pd.to_datetime('3/1/2023')
+    date_series = pd.date_range(start=start_date, end=end_date, freq=pd.to_timedelta('6h'), closed='left')
+    df = pd.DataFrame({'ds': date_series})
+    df['val'] = 1.0
     return df
 
 # test 1
@@ -108,13 +118,39 @@ def test_averaging(feb_ts_df):
     # is a continuation of the supplied df
     assert avg_df.index.start == feb_ts_df.index.stop
 
-    def test_date_from_index():
-        msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y')
-        # 1
-        calculated = pd.to_datetime('2/1/2023 18:00:00')
-        from_function = msa.get_date_from_index(7)
-        assert abs(from_function - calculated) < pd.to_timedelta('1ms')
-        # 2
-        calculated = pd.to_datetime('1/30/2023 12:00:00')
-        from_function = msa.get_date_from_index(-6)
-        assert abs(from_function - calculated) < pd.to_timedelta('1ms')
+def test_date_from_index(feb_ts_df):
+    msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y')
+    # 1
+    calculated = pd.to_datetime('2/2/2023 18:00:00')
+    from_function = msa.get_date_from_index(7)
+    assert abs(from_function - calculated) < pd.to_timedelta('1ms')
+    # 2
+    calculated = pd.to_datetime('1/30/2023 12:00:00')
+    from_function = msa.get_date_from_index(-6)
+    assert abs(from_function - calculated) < pd.to_timedelta('1ms')
+
+def test_avg_on_flatdata(const_ts_df, seasonal_list_decay_week):
+    '''
+    In this test predictions will be made on a time series that takes
+    a constant value (1.0). Irrespective of the averaging method used, the
+    values for every forecast window must be constant (1.0)
+    '''
+    # checking arbitrary column label names
+    msa = MultiseasonalAveraging(const_ts_df, date='ds', y='val')
+    expected = 1.0
+        
+    possible_functions = ['ones', 'self', 'exponential_decay']
+    # generating all possible permutations of three options above
+    n = 3
+    permutation_list = set(itertools.permutations(possible_functions*n, n))
+
+    for i, functions in enumerate(permutation_list):
+        seasonal_dict_list = [{'period': 4, 'function': functions[0]},
+                              {'period': 28, 'function': functions[1]},
+                              {'period': 112, 'function': functions[2]}
+                            ]
+        msa.get_averages(seasonal_dict_list, 112, 'test')
+        avg_df = msa.avg_df_list[i]['avg_df']
+        yhat = avg_df['yhat'].to_numpy()
+        np.testing.assert_array_almost_equal(expected, yhat)
+        print('passed')

@@ -24,13 +24,14 @@ class MultiseasonalAveraging():
     def get_timewindow(self):
         df = self.df
         date = self.date
-        dt = (df.iloc[1][date] - df.iloc[0][date]).total_seconds()
-        dt_array = (df[date].iloc[1:].reset_index(drop=True)
+        dt_timedelta = (df.iloc[1][date] - df.iloc[0][date])
+        dt_seconds = dt_timedelta.total_seconds()
+        dt_seconds_array = (df[date].iloc[1:].reset_index(drop=True)
                     - df[date].iloc[0:-1].reset_index(drop=True)).dt.total_seconds().to_numpy()
-        if (not np.all(np.isclose(dt,dt_array))):
+        if (not np.all(np.isclose(dt_seconds, dt_seconds_array))):
             raise ValueError('The time intervals between consecutive entries of the supplied dataframe are not equal')
         else:
-            self.dt = dt
+            self.dt_timedelta = dt_timedelta
 
     @staticmethod
     def outer_flatten(seasonal_list):
@@ -55,7 +56,7 @@ class MultiseasonalAveraging():
         return arr
 
     def get_date_from_index(self, idx):
-        return self.start_time + self.dt * (idx - self.index_start)
+        return self.start_time + self.dt_timedelta * (idx - self.index_start)
 
     def __append_to_average_table(self):
         try:
@@ -68,6 +69,8 @@ class MultiseasonalAveraging():
         return idx
 
     def get_averages(self, seasonal_dict_list, ntimesteps_forecast=None, name=None):
+        date = self.date
+        y = self.y
         
         # Check if the total number of timesteps available in the supplied dataframe
         # is adequate for the averaging
@@ -107,7 +110,7 @@ class MultiseasonalAveraging():
         self.avg_df_list[idx]['step_forecast_start'] = df_extract.index.stop
         self.avg_df_list[idx]['step_forecast_end'] = self.avg_df_list[idx]['step_forecast_start'] + ntimesteps_forecast
 
-        y_history = df_extract['y'].to_numpy()
+        y_history = df_extract[y].to_numpy()
         avg_list = []
         for ts in range(self.avg_df_list[idx]['step_forecast_start'], self.avg_df_list[idx]['step_forecast_end']):
             dividend = ts
@@ -124,5 +127,8 @@ class MultiseasonalAveraging():
                          inplace=True)
 
         self.avg_df_list[idx]['avg_df'] = avg_df
+        # Adding date information to dataframe
+        self.avg_df_list[idx]['avg_df'][date] = pd.Series(self.avg_df_list[idx]['avg_df'].index).apply(lambda id: self.get_date_from_index(id)).values
+        self.avg_df_list[idx]['avg_df'] = self.avg_df_list[idx]['avg_df'].reindex(columns=[date, 'yhat'])
                                           
 
