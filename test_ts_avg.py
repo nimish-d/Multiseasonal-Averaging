@@ -129,7 +129,7 @@ def test_date_from_index(feb_ts_df):
     from_function = msa.get_date_from_index(-6)
     assert abs(from_function - calculated) < pd.to_timedelta('1ms')
 
-def test_avg_on_flatdata(const_ts_df, seasonal_list_decay_week):
+def test_avg_on_flatdata(const_ts_df):
     '''
     In this test predictions will be made on a time series that takes
     a constant value (1.0). Irrespective of the averaging method used, the
@@ -137,7 +137,8 @@ def test_avg_on_flatdata(const_ts_df, seasonal_list_decay_week):
     '''
     # checking arbitrary column label names
     msa = MultiseasonalAveraging(const_ts_df, date='ds', y='val')
-    expected = 1.0
+    expected_avg = 1.0
+    expected_std = 0.0
         
     possible_functions = ['ones', 'self', 'exponential_decay']
     # generating all possible permutations of three options above
@@ -151,6 +152,12 @@ def test_avg_on_flatdata(const_ts_df, seasonal_list_decay_week):
                             ]
         msa.get_averages(seasonal_dict_list, 112, 'test')
         avg_df = msa.avg_df_list[i]['avg_df']
+
+        # average must be 1 irrespective of the method of averaging
         yhat = avg_df['yhat'].to_numpy()
-        np.testing.assert_array_almost_equal(expected, yhat)
-        print('passed')
+        np.testing.assert_array_almost_equal(expected_avg, yhat)
+
+        # standard deviation must be zero, again, irrespective of the method
+        # of averaging
+        ystd = avg_df['ystd'].to_numpy()
+        np.testing.assert_array_almost_equal(expected_std, ystd)

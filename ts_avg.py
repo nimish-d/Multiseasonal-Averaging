@@ -112,6 +112,7 @@ class MultiseasonalAveraging():
 
         y_history = df_extract[y].to_numpy()
         avg_list = []
+        std_list = []
         for ts in range(self.avg_df_list[idx]['step_forecast_start'], self.avg_df_list[idx]['step_forecast_end']):
             dividend = ts
             coefficients_list = []
@@ -120,15 +121,20 @@ class MultiseasonalAveraging():
                 c = MultiseasonalAveraging.coefficients(n, div_seasonality_list[i], seasonal_dict_list[i]['function'])
                 coefficients_list.append(c)
             coefficients = MultiseasonalAveraging.outer_flatten(coefficients_list)
+            # calculate the weighted average of the observations
             avg = np.dot(coefficients, y_history)
+            non_zero_coeff = np.logical_not(np.isclose(np.abs(coefficients), 0.0, atol=1.0e-15))
+            std = np.std(y_history[non_zero_coeff])
             avg_list.append(avg)
-        avg_df =  pd.DataFrame({'yhat': avg_list})                                                                                              
+            std_list.append(std)
+        avg_df =  pd.DataFrame({'yhat': avg_list, 'ystd': std_list})                                                                                              
         avg_df.set_index(keys=pd.Index(range(self.avg_df_list[idx]['step_forecast_start'], self.avg_df_list[idx]['step_forecast_end'])),
                          inplace=True)
 
         self.avg_df_list[idx]['avg_df'] = avg_df
-        # Adding date information to dataframe
+        # Adding date/time information to dataframe
         self.avg_df_list[idx]['avg_df'][date] = pd.Series(self.avg_df_list[idx]['avg_df'].index).apply(lambda id: self.get_date_from_index(id)).values
-        self.avg_df_list[idx]['avg_df'] = self.avg_df_list[idx]['avg_df'].reindex(columns=[date, 'yhat'])
+        self.avg_df_list[idx]['avg_df'] = self.avg_df_list[idx]['avg_df'].reindex(columns=[date, 'yhat', 'ystd'])
+
                                           
 
