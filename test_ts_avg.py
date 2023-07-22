@@ -42,6 +42,16 @@ def const_ts_df():
     df['val'] = 1.0
     return df
 
+@pytest.fixture()
+def linear_increase_daily_period_weekly():
+    start_date = pd.to_datetime('2/1/2023')
+    end_date = pd.to_datetime('3/1/2023')
+    date_series = pd.date_range(start=start_date, end=end_date, freq=pd.to_timedelta('6h'), closed='left')
+    df = pd.DataFrame({'date': date_series})
+    df['y'] = df.index
+    df['y'] = df['y'].apply(lambda x: (x%4)*((x//4)%7))
+    return df
+
 # test 1
 def test_outer_flatten_1(seasonal_list, seasonal_nplist):
     calculated = np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
@@ -161,3 +171,46 @@ def test_avg_on_flatdata(const_ts_df):
         # of averaging
         ystd = avg_df['ystd'].to_numpy()
         np.testing.assert_array_almost_equal(expected_std, ystd)
+
+def test_linear_increase_daily_period_weekly_1(linear_increase_daily_period_weekly):
+    seasonal_dict_list = [{'period': 4, 'function': 'self'},
+                          {'period': 28, 'function': 'self'},
+                          {'period': 112, 'function': 'exponential_decay'},
+                          ]
+
+    msa = MultiseasonalAveraging(linear_increase_daily_period_weekly)
+    msa.get_averages(seasonal_dict_list, 112, 'test')
+    # check yhat
+    yhat = msa.avg_df_list[0]['avg_df']['yhat'].to_numpy()
+    yhat_expected = linear_increase_daily_period_weekly['y'].to_numpy()
+    np.testing.assert_array_almost_equal(yhat, yhat_expected)
+
+    # check ystd
+    ystd_expected = 0.0
+    ystd = msa.avg_df_list[0]['avg_df']['ystd'].to_numpy()
+    np.testing.assert_array_almost_equal(ystd, ystd_expected)
+
+def test_linear_increase_daily_period_weekly_2(linear_increase_daily_period_weekly):
+    seasonal_dict_list = [{'period': 4, 'function': 'ones'},
+                          {'period': 28, 'function': 'self'},
+                          {'period': 112, 'function': 'exponential_decay'},
+                          ]
+
+    msa = MultiseasonalAveraging(linear_increase_daily_period_weekly)
+    msa.get_averages(seasonal_dict_list, 112, 'test')
+    # check yhat
+    yhat = msa.avg_df_list[0]['avg_df']['yhat'].to_numpy()
+    # 0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0, ... for one month
+    yhat_expected = np.outer(np.ones(4), np.outer(np.arange(7)*1.5, np.ones(4)).flatten()).flatten()
+    np.testing.assert_array_almost_equal(yhat, yhat_expected)
+
+    # check ystd
+    ystd_expected = np.outer(np.ones(4), (np.outer((np.std(np.arange(4)) * np.arange(7)), np.ones(4)).flatten())).flatten()
+    ystd = msa.avg_df_list[0]['avg_df']['ystd'].to_numpy()
+    np.testing.assert_array_almost_equal(ystd, ystd_expected)
+
+
+
+
+
+
