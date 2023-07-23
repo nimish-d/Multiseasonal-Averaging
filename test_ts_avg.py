@@ -128,15 +128,15 @@ def test_averaging(feb_ts_df):
     # is a continuation of the supplied df
     assert avg_df.index.start == feb_ts_df.index.stop
 
-def test_date_from_index(feb_ts_df):
+def test_date_from_timestep(feb_ts_df):
     msa = MultiseasonalAveraging(feb_ts_df, date='date', y='y')
     # 1
     calculated = pd.to_datetime('2/2/2023 18:00:00')
-    from_function = msa.get_date_from_index(7)
+    from_function = msa.get_date_from_timestep(7)
     assert abs(from_function - calculated) < pd.to_timedelta('1ms')
     # 2
     calculated = pd.to_datetime('1/30/2023 12:00:00')
-    from_function = msa.get_date_from_index(-6)
+    from_function = msa.get_date_from_timestep(-6)
     assert abs(from_function - calculated) < pd.to_timedelta('1ms')
 
 def test_avg_on_flatdata(const_ts_df):

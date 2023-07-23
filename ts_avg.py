@@ -7,14 +7,16 @@ class MultiseasonalAveraging():
         self.date = date
         self.y = y
         self.df = df[[self.date, self.y]].copy(deep=True)
-        self.df.reset_index(inplace=True) # index retained
+        # retain original `index` and rename as `timestep`
+        self.df.reset_index(inplace=True, drop=False)
+        self.df.rename(columns={'index':'timestep'})
         self.get_ntimesteps()
         self.get_timewindow()
     
     def get_ntimesteps(self):
-        self.step_start = self.df.iloc[0]['index']
-        self.step_end = self.df.iloc[-1]['index']
-        self.ntimesteps = self.step_end - self.step_start
+        self.timestep_start = self.df.iloc[0]['index']
+        self.timestep_end = self.df.iloc[-1]['index']
+        self.ntimesteps = self.timestep_end - self.timestep_start
         if (self.ntimesteps == 0):
             raise ValueError(f'The supplied dataframe has only one timestep')
         self.index_start = self.df.index.start
@@ -55,8 +57,8 @@ class MultiseasonalAveraging():
         arr = arr / np.sum(arr)
         return arr
 
-    def get_date_from_index(self, idx):
-        return self.start_time + self.dt_timedelta * (idx - self.step_start)
+    def get_date_from_timestep(self, idx):
+        return self.start_time + self.dt_timedelta * (idx - self.timestep_start)
 
     def __append_to_average_table(self):
         try:
@@ -105,10 +107,10 @@ class MultiseasonalAveraging():
         self.avg_df_list[idx]['df_extract'] = df_extract      
 
         # Caclulation of averages, std. deviation etc.
-        # Given a new time step, calculate `n` for each
+        # Given a new timestep, calculate `n` for each
         # of the multiseasonality
-        self.avg_df_list[idx]['step_forecast_start'] = self.step_end + 1
-        self.avg_df_list[idx]['step_forecast_end'] = self.avg_df_list[idx]['step_forecast_start'] + ntimesteps_forecast
+        self.avg_df_list[idx]['timestep_forecast_start'] = self.timestep_end + 1
+        self.avg_df_list[idx]['timestep_forecast_end'] = self.avg_df_list[idx]['timestep_forecast_start'] + ntimesteps_forecast
 
         y_history = df_extract[y].to_numpy()
         avg_list = []
@@ -128,12 +130,12 @@ class MultiseasonalAveraging():
             avg_list.append(avg)
             std_list.append(std)
         avg_df =  pd.DataFrame({'yhat': avg_list, 'ystd': std_list})                                                                                              
-        avg_df.set_index(keys=pd.Index(range(self.avg_df_list[idx]['step_forecast_start'], self.avg_df_list[idx]['step_forecast_end'])),
+        avg_df.set_index(keys=pd.Index(range(self.avg_df_list[idx]['timestep_forecast_start'], self.avg_df_list[idx]['timestep_forecast_end'])),
                          inplace=True)
 
         self.avg_df_list[idx]['avg_df'] = avg_df
         # Adding date/time information to dataframe
-        self.avg_df_list[idx]['avg_df'][date] = pd.Series(self.avg_df_list[idx]['avg_df'].index).apply(lambda id: self.get_date_from_index(id)).values
+        self.avg_df_list[idx]['avg_df'][date] = pd.Series(self.avg_df_list[idx]['avg_df'].index).apply(lambda timestep: self.get_date_from_timestep(timestep)).values
         self.avg_df_list[idx]['avg_df'] = self.avg_df_list[idx]['avg_df'].reindex(columns=[date, 'yhat', 'ystd'])
 
                                           
