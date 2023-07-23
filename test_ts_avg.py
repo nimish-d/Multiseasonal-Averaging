@@ -199,7 +199,7 @@ def test_linear_increase_daily_period_weekly_2(linear_increase_daily_period_week
     msa = MultiseasonalAveraging(linear_increase_daily_period_weekly)
     msa.get_averages(seasonal_dict_list, 112, 'test')
     # check yhat
-    yhat = msa.avg_df_list[0]['avg_df']['yhat'].to_numpy()
+    yhat = msa.avg_df_list[0]['avg_df']['yhat'].reset_index(drop=True).to_numpy()
     # 0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0, ... for one month
     yhat_expected = np.outer(np.ones(4), np.outer(np.arange(7)*1.5, np.ones(4)).flatten()).flatten()
     np.testing.assert_array_almost_equal(yhat, yhat_expected)

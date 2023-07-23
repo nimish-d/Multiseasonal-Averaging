@@ -12,13 +12,13 @@ class MultiseasonalAveraging():
         self.get_timewindow()
     
     def get_ntimesteps(self):
-        self.step_start = self.df.index.start
-        self.step_end = self.df.index.stop
-        if (self.step_start == self.step_end):
-            raise ValueError(f'The supplied dataframe has only one timestep')
-        self.index_start = self.df.iloc[0]['index']
-        self.index_end = self.df.iloc[-1]['index']
+        self.step_start = self.df.iloc[0]['index']
+        self.step_end = self.df.iloc[-1]['index']
         self.ntimesteps = self.step_end - self.step_start
+        if (self.ntimesteps == 0):
+            raise ValueError(f'The supplied dataframe has only one timestep')
+        self.index_start = self.df.index.start
+        self.index_end = self.df.index.stop
         self.start_time = self.df.iloc[0][self.date]
 
     def get_timewindow(self):
@@ -56,7 +56,7 @@ class MultiseasonalAveraging():
         return arr
 
     def get_date_from_index(self, idx):
-        return self.start_time + self.dt_timedelta * (idx - self.index_start)
+        return self.start_time + self.dt_timedelta * (idx - self.step_start)
 
     def __append_to_average_table(self):
         try:
@@ -107,13 +107,13 @@ class MultiseasonalAveraging():
         # Caclulation of averages, std. deviation etc.
         # Given a new time step, calculate `n` for each
         # of the multiseasonality
-        self.avg_df_list[idx]['step_forecast_start'] = df_extract.index.stop
+        self.avg_df_list[idx]['step_forecast_start'] = self.step_end + 1
         self.avg_df_list[idx]['step_forecast_end'] = self.avg_df_list[idx]['step_forecast_start'] + ntimesteps_forecast
 
         y_history = df_extract[y].to_numpy()
         avg_list = []
         std_list = []
-        for ts in range(self.avg_df_list[idx]['step_forecast_start'], self.avg_df_list[idx]['step_forecast_end']):
+        for ts in range(ntimesteps_forecast):
             dividend = ts
             coefficients_list = []
             for i in range(nseasonality):
