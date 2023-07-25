@@ -139,38 +139,40 @@ def test_date_from_timestep(feb_ts_df):
     from_function = msa.get_date_from_timestep(-6)
     assert abs(from_function - calculated) < pd.to_timedelta('1ms')
 
-def test_avg_on_flatdata(const_ts_df):
-    '''
-    In this test predictions will be made on a time series that takes
-    a constant value (1.0). Irrespective of the averaging method used, the
-    values for every forecast window must be constant (1.0)
-    '''
-    # checking arbitrary column label names
-    msa = MultiseasonalAveraging(const_ts_df, date='ds', y='val')
-    expected_avg = 1.0
-    expected_std = 0.0
-        
+
+# Constant timeseries must be forecasted for a constant history irrespective 
+# of how the weighted average over the past is performed
+# @pytest.fixture()
+def all_possible_weights():
     possible_functions = ['ones', 'self', 'exponential_decay']
     # generating all possible permutations of three options above
     n = 3
     permutation_list = set(itertools.permutations(possible_functions*n, n))
-
+    full_list = []
     for i, functions in enumerate(permutation_list):
         seasonal_dict_list = [{'period': 4, 'function': functions[0]},
                               {'period': 28, 'function': functions[1]},
                               {'period': 112, 'function': functions[2]}
                             ]
-        msa.get_averages(seasonal_dict_list, 112, 'test')
-        avg_df = msa.avg_df_list[i]['avg_df']
+        full_list.append(seasonal_dict_list)
+    return full_list
 
-        # average must be 1 irrespective of the method of averaging
-        yhat = avg_df['yhat'].to_numpy()
-        np.testing.assert_array_almost_equal(expected_avg, yhat)
+@pytest.mark.parametrize('cases',
+                         [{'seasonal_dict_list':adict,
+                           'yhat_expected':1.0,
+                           'ystd_expected': 0.0}
+                           for adict in all_possible_weights()])
+def test_avg_on_flatdata(const_ts_df, cases):
+    msa = MultiseasonalAveraging(const_ts_df, date='ds', y='val')
+    msa.get_averages(cases['seasonal_dict_list'], 112, 'test')
+    avg_df = msa.avg_df_list[0]['avg_df']
+    yhat = avg_df['yhat'].to_numpy()
+    # Average must be 1.0
+    np.testing.assert_array_almost_equal(cases['yhat_expected'], yhat)
 
-        # standard deviation must be zero, again, irrespective of the method
-        # of averaging
-        ystd = avg_df['ystd'].to_numpy()
-        np.testing.assert_array_almost_equal(expected_std, ystd)
+    # standard deviation must be zero
+    ystd = avg_df['ystd'].to_numpy()
+    np.testing.assert_array_almost_equal(cases['ystd_expected'], ystd)
 
 def test_linear_increase_daily_period_weekly_1(linear_increase_daily_period_weekly):
     seasonal_dict_list = [{'period': 4, 'function': 'self'},
@@ -208,9 +210,3 @@ def test_linear_increase_daily_period_weekly_2(linear_increase_daily_period_week
     ystd_expected = np.outer(np.ones(4), (np.outer((np.std(np.arange(4)) * np.arange(7)), np.ones(4)).flatten())).flatten()
     ystd = msa.avg_df_list[0]['avg_df']['ystd'].to_numpy()
     np.testing.assert_array_almost_equal(ystd, ystd_expected)
-
-
-
-
-
-
